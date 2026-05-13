@@ -12,31 +12,31 @@ Then
 
 ### 2) Build go file into an executable
 
-    go build -o check_packages check_packages.go
+    go build -o jfrog_package_checker jfrog_package_checker.go
 
 ### 3) Give the file executable permissions
 
-    chmod +x check_packages
+    chmod +x jfrog_package_checker
 
 ### 4) Move the file to a location to execute system wide
 
-    mv check_packages /usr/bin/check_packages
+    mv jfrog_package_checker /usr/bin/jfrog_package_checker
 
 ## Usage
 
 ### 1) Run the tool with basic authentication
 
-    ./check_packages -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv
+    ./jfrog_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv
 
 ### 2) Run parallel HTTP requests for faster assessment time (be careful to not overload the instance if it might not handle many concurrent requests!)
 
 Number can be from 10 (Slow) to 200+ (Fast). Default is 50.
 
-    ./check_packages -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv -workers 100
+    ./jfrog_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv -workers 100
 
 ### 3) Help menu
 
-    ./check-packages -help
+    ./jfrog_package_checker -help
 
 ## Supported Ecosystems
 
