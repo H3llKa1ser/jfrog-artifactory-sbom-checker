@@ -1,6 +1,6 @@
 # JFrog Artifactory Package Checker
 
-Go version: go1.22.2 linux/amd64
+Go version at the time of development: go1.22.2 linux/amd64
 
 ### Install Go
 
