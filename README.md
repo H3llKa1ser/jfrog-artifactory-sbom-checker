@@ -10,9 +10,15 @@ Then
 
     cd jfrog-artifactory-package-checker/
 
-### 2) Build go file into an executable
+### 2) Compile into an executable
+
+Linux
 
     go build -o jfrog_package_checker jfrog_package_checker.go
+
+Windows 64-bit
+
+    GOOS=windows GOARCH=amd64 go build -o check_packages.exe check_packages.go
 
 ### 3) Give the file executable permissions
 
