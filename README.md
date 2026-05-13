@@ -58,3 +58,5 @@ Number can be from 10 (Slow) to 200+ (Fast). Default is 50.
 | `alpine`                   | Alpine Linux                    | `curl`, `git`                                      |
 | `helm`                     | Kubernetes                      | `ingress-nginx`                                    |
 | _(anything else)_           | Generic fallback                | Falls back to storage API paths                    |
+
+You can use the package_list.csv file as a reference.
