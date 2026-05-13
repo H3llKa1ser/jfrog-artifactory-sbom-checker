@@ -1,5 +1,7 @@
 # JFrog Artifactory Package Checker
 
+Go version: go1.22.2 linux/amd64
+
 ## Installation
 
 ### 1) Clone from repository
