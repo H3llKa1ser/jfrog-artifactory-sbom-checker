@@ -33,3 +33,7 @@ Then
 Number can be from 10 (Slow) to 200+ (Fast)
 
     ./check_packages -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv -workers 100
+
+### 3) Help menu
+
+    ./check-packages -help
