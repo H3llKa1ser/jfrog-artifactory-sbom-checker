@@ -20,7 +20,7 @@ Then
 
 ### 4) Move the file to a location to execute system wide
 
-    mv jfrog_package_checker /usr/bin/jfrog_package_checker
+    sudo cp jfrog_package_checker /usr/bin/jfrog_package_checker
 
 ## Usage
 
