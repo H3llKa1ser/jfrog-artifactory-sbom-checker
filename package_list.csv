@@ -1,0 +1,6 @@
+Ecosystem,Namespace,Name,Version
+npm,@tanstack,react-query,5.0.0
+npm,,express,4.18.2
+pypi,,requests,2.31.0
+maven,org.apache.commons,commons-lang3,3.14.0
+docker,library,nginx,1.25.3
