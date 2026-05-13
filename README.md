@@ -18,7 +18,7 @@ Linux
 
 Windows 64-bit
 
-    GOOS=windows GOARCH=amd64 go build -o check_packages.exe check_packages.go
+    GOOS=windows GOARCH=amd64 go build -o jfrog_package_checker.exe jfrog_package_checker.go
 
 ### 3) Give the file executable permissions
 
