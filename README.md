@@ -30,7 +30,7 @@ Then
 
 ### 2) Run parallel HTTP requests for faster assessment time (be careful to not overload the instance if it might not handle many concurrent requests!)
 
-Number can be from 10 (Slow) to 200+ (Fast)
+Number can be from 10 (Slow) to 200+ (Fast). Default is 50.
 
     ./check_packages -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv -workers 100
 
