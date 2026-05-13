@@ -20,6 +20,11 @@ Windows 64-bit
 
     GOOS=windows GOARCH=amd64 go build -o jfrog_package_checker.exe jfrog_package_checker.go
 
+OR you can run build.sh to compile the app for Windows, Linux and MacOS
+
+    chmod +x build.sh
+    ./build.sh
+
 ### 3) Give the file executable permissions
 
     chmod +x jfrog_package_checker
