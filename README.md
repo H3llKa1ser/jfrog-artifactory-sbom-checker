@@ -28,7 +28,7 @@ Then
 
     ./check_packages -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv
 
-### 2) Run parallel HTTP requests for faster assessment time (be careful on not overloading the instance!)
+### 2) Run parallel HTTP requests for faster assessment time (be careful to not overload the instance if it might not handle many concurrent requests!)
 
 Number can be from 10 (Slow) to 200+ (Fast)
 
