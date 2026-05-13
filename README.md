@@ -22,8 +22,7 @@ Windows 64-bit
 
 OR you can run build.sh to compile the app for Windows, Linux and MacOS
 
-    chmod +x build.sh
-    ./build.sh
+    bash build.sh
 
 ### 3) Give the file executable permissions
 
