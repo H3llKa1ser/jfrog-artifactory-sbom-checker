@@ -6,6 +6,10 @@
 
     git clone https://github.com/H3llKa1ser/jfrog-artifactory-package-checker
 
+Then
+
+    cd jfrog-artifactory-package-checker/
+
 ### 2) Build go file into an executable
 
     go build -o check_packages check_packages.go
