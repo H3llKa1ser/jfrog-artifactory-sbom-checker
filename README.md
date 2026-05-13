@@ -30,7 +30,7 @@ Windows 64-bit
 
 ## Usage
 
-### 1) Run the tool with basic authentication
+### 1) Run the tool with your generated JFrog credentials
 
     ./jfrog_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv
 
