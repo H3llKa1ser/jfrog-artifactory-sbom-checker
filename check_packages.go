@@ -390,19 +390,163 @@ func buildURLs(config Config, repo string, pkg Package) []string {
     base := config.ArtifactoryHost + "/artifactory"
     var urls []string
 
+    fullName := pkg.Name
     if pkg.Namespace != "" {
-        // Scoped package: @scope/name
+        fullName = pkg.Namespace + "/" + pkg.Name
+    }
+
+    switch pkg.Ecosystem {
+
+    // ---- npm ----
+    case "npm":
+        if pkg.Namespace != "" {
+            urls = append(urls,
+                fmt.Sprintf("%s/api/npm/%s/%s/%s/%s", base, repo, pkg.Namespace, pkg.Name, pkg.Version),
+                fmt.Sprintf("%s/api/storage/%s/%s/%s/-/%s-%s.tgz", base, repo, pkg.Namespace, pkg.Name, pkg.Name, pkg.Version),
+                fmt.Sprintf("%s/api/storage/%s/%s/%s/%s", base, repo, pkg.Namespace, pkg.Name, pkg.Version),
+            )
+        } else {
+            urls = append(urls,
+                fmt.Sprintf("%s/api/npm/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+                fmt.Sprintf("%s/api/storage/%s/%s/-/%s-%s.tgz", base, repo, pkg.Name, pkg.Name, pkg.Version),
+                fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+            )
+        }
+
+    // ---- PyPI (Python) ----
+    case "pypi":
+        normalized := strings.ReplaceAll(strings.ToLower(pkg.Name), "-", "_")
         urls = append(urls,
-            fmt.Sprintf("%s/api/npm/%s/%s/%s/%s", base, repo, pkg.Namespace, pkg.Name, pkg.Version),
-            fmt.Sprintf("%s/api/storage/%s/%s/%s/-/%s-%s.tgz", base, repo, pkg.Namespace, pkg.Name, pkg.Name, pkg.Version),
-            fmt.Sprintf("%s/api/storage/%s/%s/%s/%s", base, repo, pkg.Namespace, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, normalized, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s/%s-%s.tar.gz", base, repo, normalized, pkg.Version, normalized, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s/%s-%s-py3-none-any.whl", base, repo, normalized, pkg.Version, normalized, pkg.Version),
+            fmt.Sprintf("%s/api/pypi/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
         )
-    } else {
-        // Unscoped package
+
+    // ---- Maven (Java) ----
+    case "maven":
+        // Namespace = groupId (e.g., "org.apache.commons")
+        // Name = artifactId (e.g., "commons-lang3")
+        groupPath := strings.ReplaceAll(pkg.Namespace, ".", "/")
         urls = append(urls,
-            fmt.Sprintf("%s/api/npm/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
-            fmt.Sprintf("%s/api/storage/%s/%s/-/%s-%s.tgz", base, repo, pkg.Name, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s/%s", base, repo, groupPath, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s/%s/%s-%s.jar", base, repo, groupPath, pkg.Name, pkg.Version, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s/%s/%s-%s.pom", base, repo, groupPath, pkg.Name, pkg.Version, pkg.Name, pkg.Version),
+        )
+
+    // ---- NuGet (.NET / C#) ----
+    case "nuget":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/nuget/v3/%s/registration/%s/%s.json", base, repo, strings.ToLower(pkg.Name), pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s/%s.%s.nupkg", base, repo, strings.ToLower(pkg.Name), pkg.Version, pkg.Name, pkg.Version),
             fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+        )
+
+    // ---- Go modules ----
+    case "go":
+        // Namespace = module path (e.g., "github.com/gin-gonic")
+        // Name = module name (e.g., "gin")
+        modulePath := pkg.Name
+        if pkg.Namespace != "" {
+            modulePath = pkg.Namespace + "/" + pkg.Name
+        }
+        urls = append(urls,
+            fmt.Sprintf("%s/api/go/%s/%s/@v/%s.info", base, repo, modulePath, pkg.Version),
+            fmt.Sprintf("%s/api/go/%s/%s/@v/%s.zip", base, repo, modulePath, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/@v/%s.zip", base, repo, modulePath, pkg.Version),
+        )
+
+    // ---- Docker ----
+    case "docker":
+        // Name = image name, Version = tag
+        imageName := pkg.Name
+        if pkg.Namespace != "" {
+            imageName = pkg.Namespace + "/" + pkg.Name
+        }
+        urls = append(urls,
+            fmt.Sprintf("%s/api/docker/%s/v2/%s/manifests/%s", base, repo, imageName, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, imageName, pkg.Version),
+        )
+
+    // ---- RubyGems (Ruby) ----
+    case "gems", "rubygems":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/storage/%s/gems/%s-%s.gem", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/gems/%s/api/v1/gems/%s.json", base, repo, pkg.Name),
+        )
+
+    // ---- Cargo (Rust) ----
+    case "cargo":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/cargo/%s/api/v1/crates/%s/%s", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s/download", base, repo, pkg.Name, pkg.Version),
+        )
+
+    // ---- Composer (PHP) ----
+    case "composer":
+        vendorPkg := pkg.Name
+        if pkg.Namespace != "" {
+            vendorPkg = pkg.Namespace + "/" + pkg.Name
+        }
+        urls = append(urls,
+            fmt.Sprintf("%s/api/storage/%s/%s/%s-%s.zip", base, repo, vendorPkg, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, vendorPkg, pkg.Version),
+        )
+
+    // ---- CocoaPods (Swift/Objective-C) ----
+    case "cocoapods", "pods":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/storage/%s/Specs/%s/%s", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/pods/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+        )
+
+    // ---- Conan (C/C++) ----
+    case "conan":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/conan/%s/v1/conans/%s/%s", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+        )
+
+    // ---- Debian/APT (deb packages) ----
+    case "debian", "deb":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/storage/%s/pool/%s_%s_amd64.deb", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/pool/%s_%s_all.deb", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+        )
+
+    // ---- RPM (Red Hat/CentOS) ----
+    case "rpm", "yum":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/storage/%s/%s-%s.x86_64.rpm", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s-%s.noarch.rpm", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+        )
+
+    // ---- Alpine (apk) ----
+    case "alpine":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/storage/%s/%s-%s.apk", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+        )
+
+    // ---- Helm (Kubernetes) ----
+    case "helm":
+        urls = append(urls,
+            fmt.Sprintf("%s/api/storage/%s/%s-%s.tgz", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/helm/%s/api/charts/%s/%s", base, repo, pkg.Name, pkg.Version),
+        )
+
+    // ---- Generic / Fallback ----
+    default:
+        if pkg.Namespace != "" {
+            urls = append(urls,
+                fmt.Sprintf("%s/api/storage/%s/%s/%s/%s", base, repo, pkg.Namespace, pkg.Name, pkg.Version),
+            )
+        }
+        urls = append(urls,
+            fmt.Sprintf("%s/api/storage/%s/%s/%s", base, repo, pkg.Name, pkg.Version),
+            fmt.Sprintf("%s/api/storage/%s/%s", base, repo, fullName),
         )
     }
 
