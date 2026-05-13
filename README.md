@@ -2,6 +2,10 @@
 
 Go version: go1.22.2 linux/amd64
 
+### Install Go
+
+    sudo apt install golang-go 
+
 ## Installation
 
 ### 1) Clone from repository
