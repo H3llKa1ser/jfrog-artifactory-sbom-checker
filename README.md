@@ -37,3 +37,24 @@ Number can be from 10 (Slow) to 200+ (Fast). Default is 50.
 ### 3) Help menu
 
     ./check-packages -help
+
+## Supported Ecosystems
+
+| Ecosystem (CSV value)      | Language / Platform             | Example Package                                    |
+|----------------------------|---------------------------------|----------------------------------------------------|
+| `npm`                      | JavaScript / TypeScript         | `@tanstack/react-query`                            |
+| `pypi`                     | Python                          | `requests`, `flask`                                |
+| `maven`                    | Java / Kotlin / Scala           | `org.apache.commons:commons-lang3`                 |
+| `nuget`                    | C# / .NET                       | `Newtonsoft.Json`                                  |
+| `go`                       | Go                              | `github.com/gin-gonic/gin`                         |
+| `docker`                   | Containers                      | `nginx`, `redis`                                   |
+| `gems` / `rubygems`         | Ruby                            | `rails`, `sinatra`                                 |
+| `cargo`                    | Rust                            | `serde`, `tokio`                                   |
+| `composer`                 | PHP                             | `laravel/framework`                                |
+| `cocoapods` / `pods`        | Swift / Objective‑C             | `Alamofire`                                        |
+| `conan`                    | C / C++                         | `boost`, `openssl`                                 |
+| `debian` / `deb`            | Debian / Ubuntu                 | `nginx`, `curl`                                    |
+| `rpm` / `yum`               | RHEL / CentOS / Fedora          | `httpd`, `openssl`                                 |
+| `alpine`                   | Alpine Linux                    | `curl`, `git`                                      |
+| `helm`                     | Kubernetes                      | `ingress-nginx`                                    |
+| _(anything else)_           | Generic fallback                | Falls back to storage API paths                    |
