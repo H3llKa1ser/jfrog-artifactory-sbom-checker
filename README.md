@@ -10,21 +10,21 @@ Go version at the time of development: go1.22.2 linux/amd64
 
 ### 1) Clone from repository
 
-    git clone https://github.com/H3llKa1ser/jfrog-artifactory-package-checker
+    git clone https://github.com/H3llKa1ser/jfrog-artifactory-sbom-checker
 
 Then
 
-    cd jfrog-artifactory-package-checker/
+    cd jfrog-artifactory-sbom-checker/
 
 ### 2) Compile into an executable
 
 Linux
 
-    go build -o jfrog_package_checker jfrog_package_checker.go
+    go build -o jfrog_sbom_package_checker jfrog_sbom_package_checker.go
 
 Windows 64-bit
 
-    GOOS=windows GOARCH=amd64 go build -o jfrog_package_checker.exe jfrog_package_checker.go
+    GOOS=windows GOARCH=amd64 go build -o jfrog_sbom_package_checker.exe jfrog_sbom_package_checker.go
 
 OR you can run build.sh to compile the app for Windows, Linux and MacOS
 
@@ -32,27 +32,27 @@ OR you can run build.sh to compile the app for Windows, Linux and MacOS
 
 ### 3) Give the file executable permissions
 
-    chmod +x jfrog_package_checker
+    chmod +x jfrog_sbom_package_checker
 
 ### 4) Move the file to a location to execute system wide
 
-    sudo cp jfrog_package_checker /usr/bin/jfrog_package_checker
+    sudo cp jfrog_sbom_package_checker /usr/bin/jfrog_sbom_package_checker
 
 ## Usage
 
 ### 1) Run the tool with your generated JFrog credentials
 
-    ./jfrog_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv
+    ./jfrog_sbom_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv
 
 ### 2) Run parallel HTTP requests for faster assessment time (be careful to not overload the instance if it might not handle many concurrent requests!)
 
 Number can be from 10 (Slow) to 200+ (Fast). Default is 50.
 
-    ./jfrog_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv -workers 100
+    ./jfrog_sbom_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv -workers 100
 
 ### 3) Help menu
 
-    ./jfrog_package_checker -help
+    ./jfrog_sbom_package_checker -help
 
 ## Supported Ecosystems
 
