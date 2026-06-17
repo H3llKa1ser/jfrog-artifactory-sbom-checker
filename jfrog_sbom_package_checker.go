@@ -1,21 +1,15 @@
-// pkg-check.go
+// jfrog_sbom_package_checker.go
 //
-// jfrog-pkg-checker: Verifies the existence of packages across ALL repositories
-// in a JFrog Artifactory instance, for multiple ecosystems (pypi, npm, maven,
-// composer, docker, go, nuget, gem). Prompts interactively for credentials
-// (password hidden), accepts .csv or .txt input, and exports results to .xlsx.
+// Verifies the existence of packages across ALL repositories in a JFrog
+// Artifactory instance. The ecosystem is AUTO-DETECTED from keywords found
+// inside the input file (.csv or .txt) using a hardcoded alias map.
+// Prompts interactively for credentials (password hidden) and exports an .xlsx.
 //
-// Dependencies (run before building):
-//   go mod init jfrog-pkg-checker
+// Dependencies:
+//   go mod init jfrog_sbom_package_checker
 //   go get github.com/xuri/excelize/v2
 //   go get golang.org/x/term
-//
-// Build:
-//   go build -o pkg-check pkg-check.go
-//
-// Input formats:
-//   .txt -> concatenated:  <name>@<version>XRAY-<id>...
-//   .csv -> columns:       name,version,xray_id   (header optional)
+//   go mod tidy
 
 package main
 
@@ -37,6 +31,7 @@ import (
     "golang.org/x/term"
 )
 
+// ecosystemAliases maps hardcoded keywords (including plurals) to canonical types.
 var ecosystemAliases = map[string]string{
     "python":    "pypi",
     "pip":       "pypi",
@@ -51,18 +46,16 @@ var ecosystemAliases = map[string]string{
     "composer":  "composer",
     "docker":    "docker",
     "container": "docker",
+    "containers": "docker",
     "go":        "go",
     "golang":    "go",
     "nuget":     "nuget",
     "dotnet":    "nuget",
+    ".net":      "nuget",
     "gem":       "gem",
+    "gems":      "gem",
     "ruby":      "gem",
     "rubygems":  "gem",
-}
-
-func resolveEcosystem(input string) (string, bool) {
-    canon, ok := ecosystemAliases[strings.ToLower(strings.TrimSpace(input))]
-    return canon, ok
 }
 
 type Package struct {
@@ -80,6 +73,7 @@ type Repository struct {
 
 type Result struct {
     Package   Package
+    Ecosystem string
     Exists    bool
     FoundIn   []string
     Checked   int
@@ -108,7 +102,7 @@ func (c *Client) auth(req *http.Request) {
     req.Header.Set("Accept", "application/json")
 }
 
-func (c *Client) ListRepositories(packageType string) ([]Repository, error) {
+func (c *Client) ListRepositories() ([]Repository, error) {
     url := c.BaseURL + "/api/repositories"
     req, err := http.NewRequest(http.MethodGet, url, nil)
     if err != nil {
@@ -132,23 +126,87 @@ func (c *Client) ListRepositories(packageType string) ([]Repository, error) {
     if err := json.Unmarshal(body, &repos); err != nil {
         return nil, fmt.Errorf("parsing repositories response: %w", err)
     }
+    return repos, nil
+}
 
-    if packageType == "" {
-        return repos, nil
-    }
-
-    filtered := make([]Repository, 0, len(repos))
-    for _, r := range repos {
-        if strings.EqualFold(r.PackageType, packageType) {
-            filtered = append(filtered, r)
+// reposForEcosystem returns repos whose packageType matches the canonical ecosystem.
+func reposForEcosystem(all []Repository, ecosystem string) []Repository {
+    out := make([]Repository, 0)
+    for _, r := range all {
+        if strings.EqualFold(r.PackageType, ecosystem) {
+            out = append(out, r)
         }
     }
-    return filtered, nil
+    return out
 }
 
 var recordRe = regexp.MustCompile(`(@?[A-Za-z0-9._\-\/]+?)@([0-9][A-Za-z0-9.\-+]*)(XRAY-\d+)`)
 
-// parseTxt parses the concatenated .txt format.
+// detectEcosystems scans raw text for hardcoded ecosystem keywords (whole-word,
+// case-insensitive) and returns the set of canonical ecosystems found, in a
+// stable order.
+func detectEcosystems(raw string) []string {
+    lower := strings.ToLower(raw)
+    seen := map[string]bool{}
+    order := []string{}
+
+    // Tokenize on any non-alphanumeric/.-+ character so keywords like "gems",
+    // "ruby", ".net" are isolated from surrounding text.
+    splitter := func(r rune) bool {
+        switch {
+        case r >= 'a' && r <= 'z':
+            return false
+        case r >= '0' && r <= '9':
+            return false
+        case r == '.' || r == '-' || r == '+':
+            return false
+        default:
+            return true
+        }
+    }
+    tokens := strings.FieldsFunc(lower, splitter)
+
+    for _, t := range tokens {
+        if canon, ok := ecosystemAliases[t]; ok {
+            if !seen[canon] {
+                seen[canon] = true
+                order = append(order, canon)
+            }
+        }
+    }
+    return order
+}
+
+// stripEcosystemKeywords removes standalone ecosystem keyword tokens so they are
+// not mistaken for package names during parsing.
+func stripEcosystemKeywords(raw string) string {
+    // Replace whole-word keyword occurrences (case-insensitive) with a space.
+    // We sort keywords by length (desc) so longer ones (e.g. "rubygems") are
+    // removed before shorter substrings.
+    keywords := make([]string, 0, len(ecosystemAliases))
+    for k := range ecosystemAliases {
+        keywords = append(keywords, k)
+    }
+    // simple length-desc sort
+    for i := 0; i < len(keywords); i++ {
+        for j := i + 1; j < len(keywords); j++ {
+            if len(keywords[j]) > len(keywords[i]) {
+                keywords[i], keywords[j] = keywords[j], keywords[i]
+            }
+        }
+    }
+
+    result := raw
+    for _, kw := range keywords {
+        // \b word boundaries, case-insensitive. Escape regex-special chars (.net).
+        pattern := `(?i)\b` + regexp.QuoteMeta(kw) + `\b`
+        re := regexp.MustCompile(pattern)
+        result = re.ReplaceAllString(result, " ")
+    }
+    return result
+}
+
+// parseTxt parses the concatenated .txt format AFTER keyword stripping.
 func parseTxt(raw string) []Package {
     cleaned := strings.NewReplacer(
         "\n", "", "\r", "", "\t", "", " ", "", "**", "",
@@ -162,12 +220,12 @@ func parseTxt(raw string) []Package {
     return pkgs
 }
 
-// parseCSV parses a .csv file. Supports an optional header row containing
-// "name", "version", "xray_id" (in any order). If no recognizable header is
-// found, it assumes columns are in the order: name, version, xray_id.
+// parseCSV parses a .csv file. Supports an optional header row (name, version,
+// xray_id) or positional columns. Cells containing ecosystem keywords only are
+// skipped. A "name@version" combined cell is also supported.
 func parseCSV(f io.Reader) ([]Package, error) {
     r := csv.NewReader(f)
-    r.FieldsPerRecord = -1 // allow variable field counts
+    r.FieldsPerRecord = -1
     r.TrimLeadingSpace = true
 
     rows, err := r.ReadAll()
@@ -178,11 +236,9 @@ func parseCSV(f io.Reader) ([]Package, error) {
         return nil, nil
     }
 
-    // Default column positions.
     nameIdx, verIdx, xrayIdx := 0, 1, 2
     startRow := 0
 
-    // Detect a header row.
     header := rows[0]
     isHeader := false
     for i, col := range header {
@@ -204,10 +260,16 @@ func parseCSV(f io.Reader) ([]Package, error) {
         if len(row) == 0 {
             continue
         }
-        var p Package
-
-        // Some CSV exports put "name@version" in a single cell — handle that.
         first := strings.TrimSpace(row[nameIdx])
+        if first == "" {
+            continue
+        }
+        // Skip cells that are purely an ecosystem keyword.
+        if _, isKw := ecosystemAliases[strings.ToLower(first)]; isKw {
+            continue
+        }
+
+        var p Package
         if (len(row) <= verIdx) && strings.Contains(first, "@") {
             at := strings.LastIndex(first, "@")
             p.Name = first[:at]
@@ -230,27 +292,33 @@ func parseCSV(f io.Reader) ([]Package, error) {
     return pkgs, nil
 }
 
-// loadPackages reads the input file and parses it based on its extension.
-func loadPackages(path string) ([]Package, error) {
+// loadInput returns the raw file content and the parsed packages, based on ext.
+func loadInput(path string) (raw string, pkgs []Package, err error) {
     ext := strings.ToLower(filepath.Ext(path))
     switch ext {
     case ".csv":
-        f, err := os.Open(path)
-        if err != nil {
-            return nil, fmt.Errorf("opening %q: %w", path, err)
+        data, e := os.ReadFile(path)
+        if e != nil {
+            return "", nil, fmt.Errorf("reading %q: %w", path, e)
         }
-        defer f.Close()
-        return parseCSV(f)
+        raw = string(data)
+        p, e := parseCSV(strings.NewReader(raw))
+        if e != nil {
+            return raw, nil, e
+        }
+        return raw, p, nil
 
     case ".txt":
-        data, err := os.ReadFile(path)
-        if err != nil {
-            return nil, fmt.Errorf("reading %q: %w", path, err)
+        data, e := os.ReadFile(path)
+        if e != nil {
+            return "", nil, fmt.Errorf("reading %q: %w", path, e)
         }
-        return parseTxt(string(data)), nil
+        raw = string(data)
+        stripped := stripEcosystemKeywords(raw)
+        return raw, parseTxt(stripped), nil
 
     default:
-        return nil, fmt.Errorf("unsupported input extension %q (use .csv or .txt)", ext)
+        return "", nil, fmt.Errorf("unsupported input extension %q (use .csv or .txt)", ext)
     }
 }
 
@@ -323,9 +391,11 @@ func (c *Client) existsInRepo(repoKey, ecosystem string, p Package) (bool, error
     }
 }
 
+// CheckPackage checks one package against the repos of a given ecosystem.
 func (c *Client) CheckPackage(p Package, ecosystem string, repos []Repository) Result {
     res := Result{
         Package:   p,
+        Ecosystem: ecosystem,
         FoundIn:   []string{},
         CheckedAt: time.Now().UTC().Format(time.RFC3339),
     }
@@ -364,14 +434,14 @@ func promptPassword(label string) (string, error) {
     return strings.TrimSpace(string(bytePwd)), nil
 }
 
-func writeXLSX(path, instance, ecosystem string, repoKeys []string, results []Result) error {
+func writeXLSX(path, instance string, detected []string, repoKeys []string, results []Result) error {
     f := excelize.NewFile()
     defer f.Close()
 
     const sheet = "Results"
     f.SetSheetName("Sheet1", sheet)
 
-    headers := []string{"Name", "Version", "XRAY ID", "Exists", "Found In", "Repos Checked", "Error", "Checked At"}
+    headers := []string{"Name", "Version", "XRAY ID", "Ecosystem", "Exists", "Found In", "Repos Checked", "Error", "Checked At"}
     for i, h := range headers {
         cell, _ := excelize.CoordinatesToCellName(i+1, 1)
         _ = f.SetCellValue(sheet, cell, h)
@@ -385,6 +455,7 @@ func writeXLSX(path, instance, ecosystem string, repoKeys []string, results []Re
             res.Package.Name,
             res.Package.Version,
             res.Package.XrayID,
+            res.Ecosystem,
             res.Exists,
             strings.Join(res.FoundIn, ", "),
             res.Checked,
@@ -412,9 +483,9 @@ func writeXLSX(path, instance, ecosystem string, repoKeys []string, results []Re
     }
     summaryRows := [][]interface{}{
         {"Instance", instance},
-        {"Ecosystem", ecosystem},
+        {"Detected ecosystems", strings.Join(detected, ", ")},
         {"Repositories checked", strings.Join(repoKeys, ", ")},
-        {"Total packages", len(results)},
+        {"Total checks", len(results)},
         {"Found", found},
         {"Missing", missing},
         {"Errors", errCount},
@@ -455,13 +526,6 @@ func main() {
         os.Exit(2)
     }
 
-    ecoInput := prompt(reader, "Ecosystem (e.g. python, node, java, php, docker, go, nuget, ruby): ")
-    ecosystem, ok := resolveEcosystem(ecoInput)
-    if !ok {
-        fmt.Fprintf(os.Stderr, "error: unknown ecosystem %q\n", ecoInput)
-        os.Exit(2)
-    }
-
     inputFile := prompt(reader, "Input file path (.csv or .txt) [packages.txt]: ")
     if inputFile == "" {
         inputFile = "packages.txt"
@@ -472,7 +536,8 @@ func main() {
         outFile = "report.xlsx"
     }
 
-    pkgs, err := loadPackages(inputFile)
+    // Load raw content + parsed packages.
+    raw, pkgs, err := loadInput(inputFile)
     if err != nil {
         fmt.Fprintf(os.Stderr, "error: %v\n", err)
         os.Exit(1)
@@ -482,54 +547,74 @@ func main() {
         os.Exit(1)
     }
 
+    // Auto-detect ecosystems from keywords inside the file.
+    detected := detectEcosystems(raw)
+    if len(detected) == 0 {
+        fmt.Fprintln(os.Stderr, "error: no ecosystem keywords detected in the input file")
+        fmt.Fprintln(os.Stderr, "       (expected keywords like: python, node, java, php, docker, go, nuget, ruby, gem...)")
+        os.Exit(1)
+    }
+
     client := NewClient(baseURL, username, password)
-    repos, err := client.ListRepositories(ecosystem)
+
+    allRepos, err := client.ListRepositories()
     if err != nil {
         fmt.Fprintf(os.Stderr, "error discovering repositories: %v\n", err)
         os.Exit(1)
     }
-    if len(repos) == 0 {
-        fmt.Fprintf(os.Stderr, "error: no %s repositories found\n", ecosystem)
-        os.Exit(1)
-    }
 
-    repoKeys := make([]string, 0, len(repos))
-    for _, r := range repos {
-        repoKeys = append(repoKeys, r.Key)
-    }
+    fmt.Printf("\nParsed %d package(s).\n", len(pkgs))
+    fmt.Printf("Detected ecosystem(s): %s\n", strings.Join(detected, ", "))
 
-    fmt.Printf("\nParsed %d package(s). Ecosystem: %s\n", len(pkgs), ecosystem)
-    fmt.Printf("Discovered %d repository(ies): %s\n\n", len(repos), strings.Join(repoKeys, ", "))
-
-    results := make([]Result, 0, len(pkgs))
+    // Build the set of repos to check (union across detected ecosystems).
+    allRepoKeysSet := map[string]bool{}
+    results := make([]Result, 0, len(pkgs)*len(detected))
     found, missing, errCount := 0, 0, 0
-    for i, p := range pkgs {
-        res := client.CheckPackage(p, ecosystem, repos)
-        results = append(results, res)
 
-        status := "MISSING"
-        switch {
-        case res.Exists:
-            found++
-            status = "FOUND"
-        case res.Error != "":
-            errCount++
-            status = "ERROR"
-        default:
-            missing++
+    for _, eco := range detected {
+        repos := reposForEcosystem(allRepos, eco)
+        if len(repos) == 0 {
+            fmt.Printf("  (no %s repositories found in instance — skipping)\n", eco)
+            continue
+        }
+        for _, r := range repos {
+            allRepoKeysSet[r.Key] = true
         }
 
-        fmt.Printf("[%d/%d] %-7s %s@%s (%s)", i+1, len(pkgs), status, p.Name, p.Version, p.XrayID)
-        if res.Exists {
-            fmt.Printf(" -> %s", strings.Join(res.FoundIn, ", "))
+        fmt.Printf("\n== Ecosystem %q: %d repo(s) ==\n", eco, len(repos))
+        for i, p := range pkgs {
+            res := client.CheckPackage(p, eco, repos)
+            results = append(results, res)
+
+            status := "MISSING"
+            switch {
+            case res.Exists:
+                found++
+                status = "FOUND"
+            case res.Error != "":
+                errCount++
+                status = "ERROR"
+            default:
+                missing++
+            }
+
+            fmt.Printf("[%s %d/%d] %-7s %s@%s (%s)", eco, i+1, len(pkgs), status, p.Name, p.Version, p.XrayID)
+            if res.Exists {
+                fmt.Printf(" -> %s", strings.Join(res.FoundIn, ", "))
+            }
+            fmt.Println()
         }
-        fmt.Println()
     }
 
-    fmt.Printf("\nSummary: %d total | %d found | %d missing | %d errors\n",
-        len(pkgs), found, missing, errCount)
+    repoKeys := make([]string, 0, len(allRepoKeysSet))
+    for k := range allRepoKeysSet {
+        repoKeys = append(repoKeys, k)
+    }
 
-    if err := writeXLSX(outFile, client.BaseURL, ecosystem, repoKeys, results); err != nil {
+    fmt.Printf("\nSummary: %d checks | %d found | %d missing | %d errors\n",
+        len(results), found, missing, errCount)
+
+    if err := writeXLSX(outFile, client.BaseURL, detected, repoKeys, results); err != nil {
         fmt.Fprintf(os.Stderr, "error writing xlsx: %v\n", err)
         os.Exit(1)
     }
