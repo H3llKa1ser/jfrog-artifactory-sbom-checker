@@ -16,7 +16,22 @@ Then
 
     cd jfrog-artifactory-sbom-checker/
 
-### 2) Compile into an executable
+### 2) Install dependencies
+
+Initialize a Go module (creates go.mod). Run once.
+
+    go mod init jfrog_sbom_package_checker
+
+Download the two external dependencies
+
+    go get github.com/xuri/excelize/v2
+    go get golang.org/x/term
+
+Tidy up (resolves and records all dependencies in go.mod/go.sum)
+
+    go mod tidy
+
+### 3) Compile into an executable
 
 Linux
 
@@ -30,11 +45,11 @@ OR you can run build.sh to compile the app for Windows, Linux and MacOS
 
     bash build.sh
 
-### 3) Give the file executable permissions
+### 4) Give the file executable permissions
 
     chmod +x jfrog_sbom_package_checker
 
-### 4) Move the file to a location to execute system wide
+### 5) Move the file to a location to execute system wide
 
     sudo cp jfrog_sbom_package_checker /usr/bin/jfrog_sbom_package_checker
 
