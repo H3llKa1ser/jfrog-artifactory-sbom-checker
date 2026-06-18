@@ -55,19 +55,11 @@ OR you can run build.sh to compile the app for Windows, Linux and MacOS
 
 ## Usage
 
-### 1) Run the tool with your generated JFrog credentials
+### 1) Run tool and follow the prompts
 
-    ./jfrog_sbom_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv
+    ./jfrog_sbom_package_checker
 
-### 2) Run parallel HTTP requests for faster assessment time (be careful to not overload the instance if it might not handle many concurrent requests!)
-
-Number can be from 10 (Slow) to 200+ (Fast). Default is 50.
-
-    ./jfrog_sbom_package_checker -csv PACKAGE_LIST.csv -host https://artifactory.mycompany.com -user USER -pass PASSWORD -output ASSESSED_PACKAGE_LIST.csv -workers 100
-
-### 3) Help menu
-
-    ./jfrog_sbom_package_checker -help
+Do not forget to append /artifactory in front of the URL you provide.
 
 ## Supported Ecosystems
 
